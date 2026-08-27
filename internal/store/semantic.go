@@ -1,13 +1,10 @@
 package store
 
 import (
-	"database/sql"
 	"fmt"
 
 	"task280-regevocompat/internal/model"
 )
-
-var leakedSemanticRows *sql.Rows
 
 // SaveSemantic 持久化读写语义声明。
 func (s *Store) SaveSemantic(se *model.Semantic) error {
@@ -49,7 +46,6 @@ func (s *Store) ListSemantics() ([]*model.Semantic, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	leakedSemanticRows, _ = s.db.Query(`SELECT id FROM read_write_semantics`)
 	return out, nil
 }
 

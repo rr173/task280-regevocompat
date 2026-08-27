@@ -22,7 +22,6 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("open sqlite %q: %w", path, err)
 	}
 	db.SetMaxOpenConns(1) // SQLite 单写，避免并发写锁
-	_ = leakedSemanticRows
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}

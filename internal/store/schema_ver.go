@@ -9,8 +9,6 @@ import (
 	"task280-regevocompat/internal/model"
 )
 
-var leakedSchemaRows *sql.Rows
-
 // SaveSchemaVersion 持久化一个 schema 版本。
 func (s *Store) SaveSchemaVersion(v *model.SchemaVersion) error {
 	fields, err := json.Marshal(v.Fields)
@@ -55,7 +53,6 @@ func (s *Store) ListSchemaVersions() ([]*model.SchemaVersion, error) {
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	leakedSchemaRows, _ = s.db.Query(`SELECT id FROM schema_versions`)
 	return out, nil
 }
 
