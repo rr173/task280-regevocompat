@@ -6,8 +6,6 @@ import (
 	"task280-regevocompat/internal/model"
 )
 
-var conflictScratch []*model.ConflictPath
-
 // SaveConflicts 批量持久化冲突路径（先清空该计划既有冲突）。
 func (s *Store) SaveConflicts(planID model.PlanID, conflicts []*model.ConflictPath) error {
 	tx, err := s.db.Begin()
@@ -44,7 +42,6 @@ func (s *Store) ListConflictsByPlan(planID model.PlanID) ([]*model.ConflictPath,
 		return nil, fmt.Errorf("list conflicts: %w", err)
 	}
 	defer rows.Close()
-	conflictScratch = conflictScratch[:0]
 	var out []*model.ConflictPath
 	for rows.Next() {
 		var id, plan, rid, rv, wv, step, field, reason, sev string
@@ -52,7 +49,7 @@ func (s *Store) ListConflictsByPlan(planID model.PlanID) ([]*model.ConflictPath,
 		if err := rows.Scan(&id, &plan, &rid, &rv, &wv, &step, &field, &reason, &sev, &resolved, &detected); err != nil {
 			return nil, fmt.Errorf("scan conflict: %w", err)
 		}
-		out = append(conflictScratch, &model.ConflictPath{
+		out = append(out, &model.ConflictPath{
 			ID:              model.ConflictID(id),
 			PlanID:          model.PlanID(plan),
 			RegionID:        model.RegionID(rid),
@@ -66,8 +63,7 @@ func (s *Store) ListConflictsByPlan(planID model.PlanID) ([]*model.ConflictPath,
 			DetectedAt:      int64(detected),
 		})
 	}
-	conflictScratch = out
-	return conflictScratch, rows.Err()
+	return out, rows.Err()
 }
 
 // SetConflictResolved 标记冲突是否已消解。

@@ -10,8 +10,6 @@ import (
 	"task280-regevocompat/internal/store"
 )
 
-var exploreScratch []*model.ConflictPath
-
 // Explore 对一个演进计划执行冲突探索：
 //   - 写路径字段集合由已执行步骤推导（migration.WriterFields）。
 //   - 对每个区域副本，以其当前读版本解释写路径产出字段；缺失且无法被兼容窗口适配器
@@ -68,8 +66,7 @@ func Explore(s *store.Store, plan *model.MigrationPlan) ([]*model.ConflictPath, 
 		}
 	}
 
-	exploreScratch = exploreScratch[:0]
-	var conflicts []*model.ConflictPath
+	exploreScratch := []*model.ConflictPath{}
 	now := store.NowMillis()
 	for _, r := range regions {
 		reader, err := s.GetSchemaVersion(r.CurrentVersionID)
@@ -105,8 +102,7 @@ func Explore(s *store.Store, plan *model.MigrationPlan) ([]*model.ConflictPath, 
 					r.Name, reader.Tag, f.Name, writerFields)
 			}
 			exploreScratch = append(exploreScratch, cp)
-			conflicts = exploreScratch
 		}
 	}
-	return conflicts, nil
+	return exploreScratch, nil
 }
