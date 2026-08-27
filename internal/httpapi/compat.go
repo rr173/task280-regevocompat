@@ -43,7 +43,7 @@ func (h *Handler) handleListWindows(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleRevokeWindow(w http.ResponseWriter, r *http.Request) {
 	id := model.WindowID(r.PathValue("id"))
-	wnd, err := compat.RevokeWindow(h.svc.Store(), id)
+	wnd, err := h.svc.RevokeWindow(id)
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return

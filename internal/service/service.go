@@ -60,7 +60,15 @@ func (svc *Service) ListSnapshots(planID model.PlanID) ([]*model.CompatSnapshot,
 }
 
 // RunExplore 执行冲突探索：持久化冲突路径，并依据未消解冲突将计划置为 conflicted / publishable。
+//
+// 必须与窗口声明/撤销共享同一串行锁，确保探索读到的窗口集合是某一时刻完整提交的快照，
+// 而非与声明交错产生的不一致视图（否则声明后的探索仍可能按「无窗口」算而卡在 conflicted）。
 func (svc *Service) RunExplore(ctx context.Context, planID model.PlanID) ([]*model.ConflictPath, error) {
+	svc.serialMu.Lock()
+	defer svc.serialMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return svc.runExploreLocked(ctx, planID)
 }
 
@@ -125,7 +133,16 @@ func (svc *Service) Conflicts(planID model.PlanID) ([]*model.ConflictPath, error
 
 // DeclareWindow 在同计划串行锁内声明兼容窗口，避免与探索交错。
 func (svc *Service) DeclareWindow(planID model.PlanID, reader, writer model.SchemaVersionID, ruleType model.WindowRuleType, payload string) (*model.CompatWindow, error) {
+	svc.serialMu.Lock()
+	defer svc.serialMu.Unlock()
 	return compat.DeclareWindow(svc.s, planID, reader, writer, ruleType, payload)
+}
+
+// RevokeWindow 在同计划串行锁内撤销兼容窗口，避免与探索交错（撤销改变探索读取的窗口状态）。
+func (svc *Service) RevokeWindow(id model.WindowID) (*model.CompatWindow, error) {
+	svc.serialMu.Lock()
+	defer svc.serialMu.Unlock()
+	return compat.RevokeWindow(svc.s, id)
 }
 
 // Seal 在同计划串行锁内封存计划。
