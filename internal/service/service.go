@@ -60,7 +60,12 @@ func (svc *Service) ListSnapshots(planID model.PlanID) ([]*model.CompatSnapshot,
 }
 
 // RunExplore 执行冲突探索：持久化冲突路径，并依据未消解冲突将计划置为 conflicted / publishable。
+//
+// 在同计划串行锁内执行，与 Conflicts 列举互斥，确保列举者不会读到
+// 「旧冲突已清空、新冲突尚未写完」的中间态空清单。
 func (svc *Service) RunExplore(ctx context.Context, planID model.PlanID) ([]*model.ConflictPath, error) {
+	svc.serialMu.Lock()
+	defer svc.serialMu.Unlock()
 	return svc.runExploreLocked(ctx, planID)
 }
 
@@ -119,7 +124,12 @@ func (svc *Service) runExploreLocked(ctx context.Context, planID model.PlanID) (
 }
 
 // Conflicts 返回计划的冲突路径。
+//
+// 在同计划串行锁内读取，与 RunExplore/VerifyAndExplore 的写入互斥，
+// 确保读到的始终是一次完整探索的结果，而非「已清空、尚未重写」的空清单。
 func (svc *Service) Conflicts(planID model.PlanID) ([]*model.ConflictPath, error) {
+	svc.serialMu.Lock()
+	defer svc.serialMu.Unlock()
 	return svc.s.ListConflictsByPlan(planID)
 }
 

@@ -2,19 +2,33 @@ package store
 
 import (
 	"fmt"
-	"time"
 
 	"task280-regevocompat/internal/model"
 )
 
-// SaveConflicts 批量持久化冲突路径（先清空该计划既有冲突）。
+// SaveConflicts 批量持久化冲突路径：在同计划维度上以单事务原子地
+// 「清空旧冲突 + 写入新冲突」。
+//
+// 把清空与重写放进同一个事务，可保证观察者要么读到替换前的旧清单、
+// 要么读到替换后的新清单，绝不会读到「刚清空、新结果尚未写入」的空清单中间态。
+// 同计划探索与列举之间的串行互斥由 Service 层 serialMu 保证，此处事务为底层兜底。
 func (s *Store) SaveConflicts(planID model.PlanID, conflicts []*model.ConflictPath) error {
-	if _, err := s.db.Exec(`DELETE FROM conflict_paths WHERE plan_id = ?`, planID); err != nil {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin save conflicts: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if _, err := tx.Exec(`DELETE FROM conflict_paths WHERE plan_id = ?`, planID); err != nil {
 		return fmt.Errorf("clear conflicts: %w", err)
 	}
-	time.Sleep(8 * time.Millisecond)
 	for _, c := range conflicts {
-		if _, err := s.db.Exec(
+		if _, err := tx.Exec(
 			`INSERT INTO conflict_paths
 			 (id, plan_id, region_id, reader_version_id, writer_version_id, step_id, field, reason, severity, resolved, detected_at)
 			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -23,6 +37,10 @@ func (s *Store) SaveConflicts(planID model.PlanID, conflicts []*model.ConflictPa
 			return fmt.Errorf("insert conflict: %w", err)
 		}
 	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit save conflicts: %w", err)
+	}
+	committed = true
 	return nil
 }
 
