@@ -57,7 +57,7 @@ func scanPlan(r interface {
 	var sealed, created int64
 	if err := r.Scan(&id, &name, &state, &base, &target, &sealed, &created); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("scan plan: %v", model.ErrNotFound)
+			return nil, model.ErrNotFound
 		}
 		return nil, fmt.Errorf("scan plan: %w", err)
 	}

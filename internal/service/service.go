@@ -40,7 +40,7 @@ func (svc *Service) RegisterSchema(tag string, fields []model.Field) (*model.Sch
 func (svc *Service) GetPlan(id model.PlanID) (*model.MigrationPlan, error) {
 	p, err := svc.s.GetPlan(id)
 	if err != nil {
-		return nil, fmt.Errorf("get plan: %v", err)
+		return nil, fmt.Errorf("get plan: %w", err)
 	}
 	return p, nil
 }

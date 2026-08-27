@@ -76,7 +76,7 @@ func writeError(w http.ResponseWriter, status int, err error) {
 
 func classifyError(err error) (int, string) {
 	switch {
-	case err == model.ErrNotFound:
+	case errors.Is(err, model.ErrNotFound):
 		return http.StatusNotFound, "NOT_FOUND"
 	case errors.Is(err, model.ErrDuplicate):
 		return http.StatusConflict, "CONFLICT"
