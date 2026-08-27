@@ -31,7 +31,7 @@ func (svc *Service) Store() *store.Store { return svc.s }
 func (svc *Service) RegisterSchema(tag string, fields []model.Field) (*model.SchemaVersion, error) {
 	v, err := schemaver.Register(svc.s, tag, fields)
 	if err != nil {
-		return nil, fmt.Errorf("register schema: %v", err)
+		return nil, fmt.Errorf("register schema: %w", err)
 	}
 	return v, nil
 }

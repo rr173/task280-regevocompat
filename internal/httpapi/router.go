@@ -78,7 +78,7 @@ func classifyError(err error) (int, string) {
 	switch {
 	case errors.Is(err, model.ErrNotFound):
 		return http.StatusNotFound, "NOT_FOUND"
-	case err == model.ErrDuplicate:
+	case errors.Is(err, model.ErrDuplicate):
 		return http.StatusConflict, "CONFLICT"
 	case errors.Is(err, model.ErrSealed):
 		return http.StatusConflict, "SEALED"

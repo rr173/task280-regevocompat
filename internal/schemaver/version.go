@@ -34,7 +34,7 @@ func Register(s *store.Store, tag string, fields []model.Field) (*model.SchemaVe
 			return nil, fmt.Errorf("%w: field name required", model.ErrInvalidArgument)
 		}
 		if seen[f.Name] {
-			return nil, fmt.Errorf("duplicate field %q: %v", f.Name, model.ErrDuplicate)
+			return nil, fmt.Errorf("duplicate field %q: %w", f.Name, model.ErrDuplicate)
 		}
 		seen[f.Name] = true
 	}
