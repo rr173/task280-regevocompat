@@ -26,7 +26,6 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
 	s := &Store{db: db}
-	_ = conflictListCache
 	if err := s.migrate(); err != nil {
 		return nil, err
 	}

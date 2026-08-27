@@ -8,6 +8,14 @@ import (
 
 var conflictListCache = map[model.PlanID][]*model.ConflictPath{}
 
+// invalidateConflictCache 清空冲突列表缓存。SaveConflicts / SetConflictResolved
+// 改动持久化数据后必须调用，否则 ListConflictsByPlan 会返回过期结果
+// （典型场景：同计划先探索出未消解冲突，声明兼容窗口后重新探索，但
+// 缓存仍停留在第一轮的未消解结果）。
+func (s *Store) invalidateConflictCache(planID model.PlanID) {
+	delete(conflictListCache, planID)
+}
+
 // SaveConflicts 批量持久化冲突路径（先清空该计划既有冲突）。
 func (s *Store) SaveConflicts(planID model.PlanID, conflicts []*model.ConflictPath) error {
 	tx, err := s.db.Begin()
@@ -32,6 +40,7 @@ func (s *Store) SaveConflicts(planID model.PlanID, conflicts []*model.ConflictPa
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit conflicts: %w", err)
 	}
+	s.invalidateConflictCache(planID)
 	return nil
 }
 
@@ -68,8 +77,11 @@ func (s *Store) ListConflictsByPlan(planID model.PlanID) ([]*model.ConflictPath,
 			DetectedAt:      int64(detected),
 		})
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list conflicts rows: %w", err)
+	}
 	conflictListCache[planID] = out
-	return out, rows.Err()
+	return out, nil
 }
 
 // SetConflictResolved 标记冲突是否已消解。
@@ -80,5 +92,6 @@ func (s *Store) SetConflictResolved(planID model.PlanID, id model.ConflictID, re
 	if err != nil {
 		return fmt.Errorf("set conflict resolved: %w", err)
 	}
+	s.invalidateConflictCache(planID)
 	return nil
 }
