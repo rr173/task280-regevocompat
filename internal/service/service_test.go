@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -90,5 +91,43 @@ func TestVerifyAndExploreFindsWestConflict(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected unresolved west customer_name conflict, got %+v", conflicts)
+	}
+}
+
+// TestRunExploreCanceledDropsConflictsAndKeepsState 验证：探索请求被取消时，
+// 已算出的冲突不得落库，计划状态也不得被翻转为 conflicted。
+// 前置：先把计划置为 verifying（conflicted 的合法前驱态），再用预取消的 ctx 跑探索，
+// 这样 explore.Explore 会跑完返回真实冲突（含 5ms sleep），但取消闸门必须拦在落库之前。
+func TestRunExploreCanceledDropsConflictsAndKeepsState(t *testing.T) {
+	svc := newTestService(t)
+	planID, _ := seedSplitPlan(t, svc)
+	s := svc.Store()
+	if _, err := migration.Verify(s, planID); err != nil {
+		t.Fatalf("verify plan: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 预取消：探索跑完后、落库前必须被拦下
+
+	conflicts, err := svc.RunExplore(ctx, planID)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled, got %v (conflicts=%d)", err, len(conflicts))
+	}
+
+	// 不应落下任何冲突路径（半成品）。
+	got, err := svc.Conflicts(planID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("canceled explore must not persist conflicts, got %d", len(got))
+	}
+	// 计划应停留在 verifying，未被翻转为 conflicted。
+	p, err := s.GetPlan(planID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.State != model.PlanVerifying {
+		t.Fatalf("canceled explore must not flip plan state, got %s", p.State)
 	}
 }

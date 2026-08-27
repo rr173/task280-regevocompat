@@ -1,7 +1,6 @@
 package httpapi
 
 import (
-	"context"
 	"net/http"
 
 	"task280-regevocompat/internal/migration"
@@ -59,7 +58,7 @@ func (h *Handler) handleVerifyPlan(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) handleExplorePlan(w http.ResponseWriter, r *http.Request) {
 	id := model.PlanID(r.PathValue("id"))
-	conflicts, err := h.svc.VerifyAndExplore(context.Background(), id)
+	conflicts, err := h.svc.VerifyAndExplore(r.Context(), id)
 	if err != nil {
 		writeAPIError(w, err)
 		return

@@ -63,7 +63,7 @@ func (svc *Service) ListSnapshots(planID model.PlanID) ([]*model.CompatSnapshot,
 func (svc *Service) RunExplore(ctx context.Context, planID model.PlanID) ([]*model.ConflictPath, error) {
 	svc.serialMu.Lock()
 	defer svc.serialMu.Unlock()
-	return svc.runExploreLocked(context.Background(), planID)
+	return svc.runExploreLocked(ctx, planID)
 }
 
 // VerifyAndExplore 将计划置为验证中并执行探索。
@@ -80,13 +80,17 @@ func (svc *Service) VerifyAndExplore(ctx context.Context, planID model.PlanID) (
 }
 
 func (svc *Service) runExploreLocked(ctx context.Context, planID model.PlanID) ([]*model.ConflictPath, error) {
-	_ = ctx
 	plan, err := svc.s.GetPlan(planID)
 	if err != nil {
 		return nil, err
 	}
 	conflicts, err := explore.Explore(svc.s, plan)
 	if err != nil {
+		return nil, err
+	}
+	// 探索完成后、落库前再校验取消：请求被取消则丢弃已算出的冲突，不写库、不改计划状态，
+	// 避免在取消的请求上留下半成品（冲突路径或 conflicted/publishable 状态翻转）。
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	if err := svc.s.SaveConflicts(planID, conflicts); err != nil {
